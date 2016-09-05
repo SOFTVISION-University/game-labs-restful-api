@@ -1,0 +1,52 @@
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-2.5.xsd
+       http://www.springframework.org/schema/rabbit
+       http://www.springframework.org/schema/rabbit/spring-rabbit-1.2.xsd
+       ">
+
+    <rabbit:connection-factory id="rabbitConnFactory"
+                               host="localhost" port="5672" password="guest"
+                               username="guest" channel-cache-size="10"/>
+
+    <rabbit:template id="template" connection-factory="rabbitConnFactory"
+                     exchange="${exchange.name}" />
+
+    <rabbit:queue name="${game.transaction.queue.name}" />
+    <rabbit:queue name="${login.queue.name}" />
+    <rabbit:queue name="${session.validation.queue.name}" />
+    <rabbit:queue name="${logout.queue.name}" />
+
+    <rabbit:topic-exchange name="${exchange.name}">
+        <rabbit:bindings>
+            <rabbit:binding queue="${login.queue.name}" pattern="${login.routing.key}"/>
+            <rabbit:binding queue="${game.transaction.queue.name}" pattern="${game.transaction.routing.key}" />
+            <rabbit:binding queue="${session.validation.queue.name}" pattern="${session.validation.routing.key}"/>
+            <rabbit:binding queue="${logout.queue.name}" pattern="${logout.routing.key}"/>
+        </rabbit:bindings>
+    </rabbit:topic-exchange>
+
+    <rabbit:listener-container connection-factory="rabbitConnFactory">
+        <rabbit:listener ref="bankListener" queue-names="${game.transaction.queue.name}" method="listen" />
+    </rabbit:listener-container>
+
+    <rabbit:listener-container connection-factory="rabbitConnFactory">
+        <rabbit:listener ref="authenticationListener" queue-names="${login.queue.name}" method="loginListen"/>
+    </rabbit:listener-container>
+
+    <rabbit:listener-container connection-factory="rabbitConnFactory">
+        <rabbit:listener ref="authenticationListener" queue-names="${logout.queue.name}" method="logoutListen"/>
+    </rabbit:listener-container>
+
+    <rabbit:listener-container connection-factory="rabbitConnFactory">
+        <rabbit:listener ref="authenticationListener" queue-names="${session.validation.queue.name}" method="validateSession"/>
+    </rabbit:listener-container>
+
+    <bean id="bankListener" class="com.practicaSV.gameLabz.services.listeners.BankAMQPListener"/>
+
+    <bean id="authenticationListener" class="com.practicaSV.gameLabz.services.listeners.AuthenticationAMQPListener"/>
+
+</beans>

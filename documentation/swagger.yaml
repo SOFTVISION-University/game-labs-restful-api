@@ -1,0 +1,1329 @@
+swagger: "2.0"
+info: 
+  version: "1.0.0"
+  title: GameLabz
+  description: |
+    ## Required software:
+
+    - Java 1.8+
+    - PostgreSQL 9+
+    - Apache Maven 3+
+    
+    ## Build:
+    CD to the pom folder
+    
+    ```
+    mvn clean package -DskipTests
+    ```
+    The jar will be in the /target folder.
+    
+    This SQL script has to be executed once when the server is deployed for the first time:
+    
+    ```
+    drop database if exists "gameLabz";
+    create database "gameLabz";
+    ```
+    
+    The required tables will be created by the application.
+    
+    ## Usage: 
+    ```
+    java -jar gameLabz-1.0-SNAPSHOT.jar [parameters]
+    Parameters:
+    --server.port: the server port, default: 8080
+    --database.username: the username for the PostgreSQL database, mandatory
+    --database.password: the password for the PostgreSQL database, mandatory
+    ```
+  contact:
+    name: Razman Tamas
+host: localhost:8080
+basePath: /gameLabz
+schemes:
+  - http
+paths:
+
+
+
+#----------------------- USER ------------------------
+
+
+
+  /users:
+    post:
+      tags:
+        - users
+      summary: Create new user
+      description: A user is being registered and after that it has to subscribe to /friendRequest and /gameGift topics to receive notifications
+      operationId: registerUser
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: body
+          name: userBody
+          description: User that needs to be registered
+          required: true
+          schema:
+            $ref: "#/definitions/UserForRegister"
+      responses:
+        201:
+          description: A new user has been successfully created
+          schema:
+            $ref: "#/definitions/ResponseUser"
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+  /login:
+    post:
+      tags:
+        - users
+      summary: Logs in existing an user
+      operationId: loginUser
+      consumes:
+        - application/json
+      parameters:
+        - in: body
+          name: userBody
+          description: Username and password for existing user to log in
+          required: true
+          schema:
+            $ref: "#/definitions/UserForLogin"
+      responses:
+        200:
+          description: Successful login
+          headers: 
+            session_id:
+              type: string
+              description: This ID is checked before every call between login and logout
+        401:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+  /users/{userName}:
+    put:
+      tags:
+        - users
+      summary: Updates user's password and/or email
+      description: Finds user by id and updates password and/or email with the ones in the input
+      operationId: updateUser
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user that needs to be updated
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: body
+          name: userBody
+          description: New password and/or email to replace the old one
+          required: true
+          schema:
+            $ref: "#/definitions/UserForUpdate"
+      responses:
+        200:
+          description: User has been successfully updated
+          schema:
+            $ref: "#/definitions/ResponseUser"
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+    delete:
+      tags:
+        - users
+      summary: Deletes a user
+      operationId: deleteUser
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user that needs to be deleted
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: User has been successfully deleted
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+  /users/{userName}/logout:
+    post:
+      tags:
+        - users
+      summary: Logs out a user
+      operationId: logoutUser
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user that needs to log out
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: Logout successful
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+    
+    
+    
+#----------------------- GAME ------------------------
+    
+    
+    
+  /admins/{userName}/games:
+    post:
+      tags:
+        - games
+      summary: An admin creates a game
+      operationId: addGame
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the calling admin user who wants to create a game
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: body
+          name: gameBody
+          description: New game that needs to be added
+          required: true
+          schema:
+            $ref: "#/definitions/Game"
+      responses:
+        201:
+          description: A new game has been successfully created
+          schema:
+            $ref: "#/definitions/GameWithId"
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: Admin's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403:
+          description: Only admins can create games
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+    get:
+      tags:
+        - games
+      summary: An admin lists games by certain filters
+      operationId: getGames
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the calling admin user who wants to list games
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: query
+          name: gameName
+          description: To filter games by their name
+          required: false
+          type: string
+        - in: query
+          name: hasOffer
+          description: To filter games which are/aren't in offers 
+          required: false
+          type: boolean
+        - in: query
+          name: genre
+          description: To filter games by their genre
+          required: false
+          type: string
+        - in: query
+          name: releasedBefore
+          description: To filter games which were released before the given date
+          required: false
+          type: integer
+          format: int64
+        - in: query
+          name: releasedAfter
+          description: To filter games which were released after the given date
+          required: false
+          type: integer
+          format: int64
+      responses:
+        200:
+          description: Listing games was successful
+          schema:
+            type: array
+            items: 
+              $ref: "#/definitions/GameWithId"
+        400:
+          description: Invalid parameters
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: Admin's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403:
+          description: Only admins can list games
+          headers:
+            error_message:
+              type: string
+              description: The error message
+  
+  /admins/{userName}/games/{gameId}:
+    put:
+      tags:
+        - games
+      summary: An admin updates an existing game
+      description: "Finds a game by id and updates it. The following fields can be updated: name, description, release date and genre"
+      operationId: updateGame
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the calling admin user who wants to update the game
+          required: true
+          type: string
+        - in: path
+          name: gameId
+          description: Id of the game which needs to be updated
+          required: true
+          type: integer
+          format: int64
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: body
+          name: gameBody
+          description: Game with new fields to update the old one
+          required: true
+          schema:
+            $ref: "#/definitions/Game"
+      responses:
+        200:
+          description: Updating game was successful
+          schema:
+            $ref: "#/definitions/GameWithId"
+        400:
+          description: Invalid parameters
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: Admin's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403:
+          description: Only admins can update games
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+      
+      
+#----------------------- GAME OFFER ------------------------
+    
+  
+          
+  /admins/{userName}/gameOffers:
+    post:
+      tags:
+        - gameOffers
+      summary: An admin creates an offer from existing games
+      description: Offers which contain a game or a bundle of games can be created so they can be bought by clients
+      operationId: addGameOffer
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the calling admin user who wants to create a game offer
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: body
+          name: gameOfferBody
+          description: Game offer that needs to be created
+          required: true
+          schema:
+            $ref: "#/definitions/GameOffer"
+      responses:
+        201:
+          description: A new game offer has been successfully created
+          schema:
+            $ref: "#/definitions/GameOfferWithId"
+        400:
+          description: Invalid parameters
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: Admin's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403:
+          description: Only admins can create game offers
+          headers:
+            error_message:
+              type: string
+              description: The error message
+    
+  /users/{userName}/gameOffers:
+    get:
+      tags:
+        - gameOffers
+      summary: Lists game offers by certain filters 
+      operationId: getGameOffersByFilters
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who wants to list the game offers
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: query
+          name: gameName
+          description: To filter game offers by their game's name
+          required: false
+          type: string
+        - in: query
+          name: gameGenre
+          description: To filter game offers by their game's genre
+          required: false
+          type: string
+        - in: query
+          name: offerType
+          description: To filter game offers by their type
+          required: false
+          type: string
+        - in: query
+          name: isPromotion
+          description: To filter game offers which are/aren't in promotion
+          required: false
+          type: number
+          format: double
+        - in: query
+          name: orderBy
+          description: Sorts list after given parameter
+          required: false
+          type: string
+        - in: query
+          name: orderDirection
+          description: Sets order direction
+          required: false
+          type: string
+          enum:
+            - ASC
+            - DESC
+      responses:
+        200:
+          description: Listing game offers has been successful
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/GameOfferWithId"
+        400:
+          description: Invalid parameters
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+  
+  /admins/{userName}/gameOffers/{gameOfferId}:
+    put:
+      tags:
+        - gameOffers
+      summary: An admin updates an existing game offer
+      description: "Finds a game offer by id and updates it. The following fields can be updated: games, price (cash and points), promotion and offer type"
+      operationId: updateGameOffer
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the calling admin user who wants to update the game offer
+          required: true
+          type: string
+        - in: path
+          name: gameOfferId
+          description: Id of the game offer which needs to be updated
+          required: true
+          type: integer
+          format: int64
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: body
+          name: gameOfferBody
+          description: Game offer with new fields to update the old one
+          required: true
+          schema:
+            $ref: "#/definitions/GameOffer"
+      responses:
+        200:
+          description: Game offer has been successfully updated
+          schema:
+            $ref: "#/definitions/GameOfferWithId"
+        400:
+          description: Invalid parameters
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: Admin's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403:
+          description: Only admins can update game offers
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+    delete:
+      tags:
+        - gameOffers
+      summary: An admin removes an existing game offer
+      operationId: removeGameOffer
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the calling admin user who wants to remove the game offer
+          required: true
+          type: string
+        - in: path
+          name: gameOfferId
+          description: Id of the game offer which needs to be removed
+          required: true
+          type: integer
+          format: int64
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: Game offer has been successfully removed
+        400:
+          description: Invalid parameters
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: Admin's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403:
+          description: Only admins can remove game offers
+          headers:
+            error_message:
+              type: string
+              description: The error message
+
+
+
+#----------------------- USER PROFILE ------------------------
+
+
+
+  /share/{sharedLinkId}:
+    put:
+      tags:
+        - userProfile
+      summary: Adds a point to a user who ownes the link
+      description: Every user has a personal link which they can share and they get points each time the link is accessed
+      operationId: clickedOnLink
+      parameters:
+        - in: path
+          name: sharedLinkId
+          description: This ID is used to distinguish each user's personal link
+          required: true
+          type: string
+      responses:
+        200:
+          description: Link has been accessed successfully
+        400:
+          description: Invalid link
+          headers:
+            error_message:
+              type: string
+              description: The error message
+    
+  /users/{userName}/profile:
+    get:
+      tags:
+        - userProfile
+      summary: A user views his own profile
+      operationId: getOwnProfile
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who wants to view his own profile
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: Getting user's profile was successful
+          schema:
+            $ref: "#/definitions/UserProfile"
+        400:
+          description: Invalid username
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        500:
+          description: Error occured while fetching profile
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        
+  /users/{userName}/profile/{friendUserName}:
+    get:
+      tags:
+        - userProfile
+      summary: A user views one of his friend's profile
+      operationId: getFriendProfile
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who wants to view his friend's profile
+          required: true
+          type: string
+        - in: path
+          name: friendUserName
+          description: Username of the user whose profile is being viewed
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: Getting user's profile was successful
+          schema:
+            $ref: "#/definitions/UserProfile"
+        400:
+          description: Invalid username
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid or the two users are not friends
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        500:
+          description: Error occured while fetching profile
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        
+  
+
+
+#----------------------- GAME ORDER ------------------------
+
+
+
+  /users/{userName}/gameOrder:
+    post:
+      tags:
+        - gameOrders
+      summary: A user buys a game or a bundle of games from an offer
+      description: An offer has a price and contains a game or a bundle of games which can be purchased by a user with cash, points, keys or it can be sent as a gift to another user
+      operationId: makeOrder
+      consumes:
+        - application/json
+      produces:
+        - application/json
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who wants to buy the game(s)
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: body
+          name: gameOrderBody
+          description: The offer that is purchased by the user
+          required: true
+          schema:
+            $ref: "#/definitions/GameOrder"
+      responses:
+        201:
+          description: The offer has been successfully purchased
+          schema:
+            $ref: "#/definitions/ResponseGameOrder"
+        400:
+          description: Invalid username
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+          
+          
+          
+          
+#----------------------- FRIEND REQUEST ------------------------          
+
+
+  
+  /users/{userName}/friendRequest:
+    post:
+      tags:
+        - friendRequest
+      summary: A user sends a friend request to another user
+      description: After the friend request is being sent the receiver gets a notification on the /friendRequest topic
+      operationId: addFriendRequest
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who wants to send the request
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+        - in: body
+          name: friendRequestBody
+          description: This contains information about the sender and the receiver
+          schema:
+            $ref: "#/definitions/FriendRequest"
+      responses:
+        200:
+          description: Friend request has been successfully sent
+          schema:
+            $ref: "#/definitions/FriendRequestWithId"
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: Friend request already exists or user's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403:
+          description: Couldn't send friend request
+          headers:
+            error_message:
+              type: string
+              description: The error message
+              
+    get:
+      tags:
+        - friendRequest
+      summary: A user lists all friend requests in which he is the sender or the receiver
+      description: A friend request is only visible until it is accepted, rejected or cancelled
+      operationId: getAllFriendRequests
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who lists the requests
+          required: true
+          type: string
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: Listing friend requests was succsessful
+          schema:
+            type: array
+            items:
+              $ref: "#/definitions/FriendRequestWithId"
+        400:
+          description: Invalid username
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+
+    
+  /users/{userName}/friendRequest/{friendRequestId}:
+    delete:
+      tags:
+        - friendRequest
+      summary: An existing friend request is cancelled by the sender
+      description: A friend request can be cancelled before it is accepted or rejected. Cancelling will send a notification to the receiver on the topic /friendRequest 
+      operationId: cancelFriendRequest
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who wants to cancel the request
+          required: true
+          type: string
+        - in: path
+          name: friendRequestId
+          description: The id of the friend request that is being cancelled
+          required: true
+          type: integer
+          format: int64
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: Friend request is successfully cancelled
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403: 
+          description: This user cannot execute the operation
+          headers:
+            error_message:
+              type: string
+              description: The error message
+  
+    post:
+      tags:
+        - friendRequest
+      summary: A user accepts or rejects a friend request
+      description: A user who received a friend request can choose to accept or reject it. The sender will receive a notification on the topic /friendRequest 
+      operationId: acceptOrRejectFriendRequest
+      parameters:
+        - in: query
+          name: choice
+          description: This parameter is used to decide whether the request is being accepted or rejected 
+          required: true
+          type: string
+          enum:
+            - ACCEPTED
+            - REJECTED
+        - in: path
+          name: userName
+          description: Username of the user who wants to accept or reject the request
+          required: true
+          type: string
+        - in: path
+          name: friendRequestId
+          description: The id of the friend request that is being accepted or rejected
+          required: true
+          type: integer
+          format: int64
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: The operation was successful
+          schema:
+            $ref: "#/definitions/FriendRequestWithId"
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        403: 
+          description: This user cannot execute the operation
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        
+        
+        
+        
+#----------------------- GAME RATING ------------------------
+
+
+
+
+  /users/{userName}/gameRating/{gameId}:
+    post:
+      tags:
+        - gameRating
+      summary: A user rates a game he owns
+      operationId: rateGame
+      parameters:
+        - in: path
+          name: userName
+          description: Username of the user who wants to rate a game
+          required: true
+          type: string
+        - in: path
+          name: gameId
+          description: Id of the game that is being rated
+          required: true
+          type: integer
+          format: int64
+        - in: query
+          name: rating
+          description: The value of the rating in [0, 100]
+          required: true
+          type: number
+          format: double
+        - in: header
+          name: session_id
+          description: It is used to identify the user's session
+          required: true
+          type: string
+      responses:
+        200:
+          description: Game was successfully rated
+          schema:
+            $ref: "#/definitions/Rating"
+        400:
+          description: Invalid input
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        401:
+          description: User's session is invalid or user doesn't own the game
+          headers:
+            error_message:
+              type: string
+              description: The error message
+        500:
+          description: Error occured while fetching the rating
+          headers:
+            error_message:
+              type: string
+              description: The error message
+
+
+
+    
+#----------------------- DEFINITIONS ------------------------
+
+
+      
+definitions:
+            
+  ResponseUser:
+      type: object
+      properties:
+        userName:
+          type: string
+        email:
+          type: string
+        userType:
+          type: string
+          enum:
+            - ADMIN
+            - CLIENT
+            
+  UserForRegister:
+      type: object
+      properties:
+        userName:
+          type: string
+        password:
+          type: string
+        email:
+          type: string
+          
+  UserForLogin:
+      type: object
+      properties:
+        userName:
+          type: string
+        password:
+          type: string
+          
+  UserForUpdate:
+      type: object
+      properties:
+        password: 
+          type: string
+        email:
+          type: string
+          
+  Game:
+      type: object
+      properties:
+        name:
+          type: string
+        description: 
+          type: string
+        releaseDate:
+          type: integer
+          format: int64
+        gameGenre:
+          type: string
+          enum:
+            - RPG
+            - FPS
+            - MOBA
+            
+  GameWithId:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description: 
+          type: string
+        releaseDate:
+          type: integer
+          format: int64
+        gameGenre:
+          type: string
+          enum:
+            - RPG
+            - FPS
+            - MOBA
+            
+  GameOffer:
+      type: object
+      properties: 
+        games:
+          type: array
+          items:
+            $ref: "#/definitions/Game"
+        priceCash:
+          type: number
+          format: double
+        pricePoints:
+          type: integer
+          format: int64
+        promotion:
+          type: number
+          format: double
+        offerType:
+          type: string
+          enum:
+            - BUNDLE
+            - SINGLE
+            
+  GameOfferWithId:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        games:
+          type: array
+          items:
+            $ref: "#/definitions/Game"
+        priceCash:
+          type: number
+          format: double
+        pricePoints:
+          type: integer
+          format: int64
+        promotion:
+          type: number
+          format: double
+        offerType:
+          type: string
+          enum:
+            - BUNDLE
+            - SINGLE
+            
+  UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user:
+          $ref: "#/definitions/ResponseUser"
+        friends:
+          type: array
+          items:
+            $ref: "#/definitions/Friends"
+        ownedGames:
+          type: array
+          items: 
+            $ref: "#/definitions/Game"
+        generatedKeys:
+          type: array
+          items:
+            $ref: "#/definitions/GeneratedKey"
+        points:
+          type: integer
+          format: int64
+        sharedLinkId:
+          type: string
+        sharedLink:
+          type: string
+          
+  Friends:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user:
+          $ref: "#/definitions/ResponseUser"
+        friend:
+          $ref: "#/definitions/ResponseUser"
+
+  ResponseGameOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user:
+          $ref: "#/definitions/ResponseUser"
+        gameOfferList:
+          type: array
+          items:
+            $ref: "#/definitions/GameOffer"
+        ownedGames:
+          type: array
+          items: 
+            $ref: "#/definitions/Game"
+        generatedKey:
+          $ref: "#/definitions/GeneratedKey"
+        dateOfOrder:
+          type: integer
+          format: int64
+          
+  GameOrder:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        user:
+          $ref: "#/definitions/ResponseUser"
+        gameOfferList:
+          type: array
+          items:
+            $ref: "#/definitions/GameOffer"
+          
+  GeneratedKey:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        generatedKey:
+          type: string
+        user:
+          $ref: "#/definitions/ResponseUser"
+        game:
+          $ref: "#/definitions/Game"
+        gameOrder:
+          $ref: "#/definitions/GameOrder"
+
+  FriendRequestWithId:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        fromWho:
+          $ref: "#/definitions/ResponseUser"
+        toWhom:
+          $ref: "#/definitions/ResponseUser"
+        status:
+          type: string
+          enum:
+            - CREATED
+            - ACCEPTED
+            - REJECTED
+            - CANCELLED
+            
+  FriendRequest:
+      type: object
+      properties:
+        fromWho:
+          $ref: "#/definitions/ResponseUser"
+        toWhom:
+          $ref: "#/definitions/ResponseUser"
+        status:
+          type: string
+          enum:
+            - CREATED
+            - ACCEPTED
+            - REJECTED
+            - CANCELLED
+            
+  Rating:
+    type: object
+    properties:
+        id:
+          type: integer
+          format: int64
+        user:
+          $ref: "#/definitions/ResponseUser"
+        game:
+          $ref: "#/definitions/Game"
+        rating:
+          type: number
+          format: double
